@@ -41,12 +41,16 @@ def resize_font(font_size, text_str, limit_width):
     limit_width为给定的长度
     返回内容为PIL.ImageFont.FreeTypeFont对象
     '''
-    font = ImageFont.truetype ( font_path, font_size )
-    font_lenth = font.getsize ( str ( text_str ) )[ 0 ]
-    while font_lenth > limit_width:
+    font = ImageFont.truetype(font_path, font_size)
+    font_bbox = font.getbbox(text_str)
+    font_length = font_bbox[2] - font_bbox[0]
+
+    while font_length > limit_width:
         font_size -= 1
-        font = ImageFont.truetype ( font_path, font_size )
-        font_lenth = font.getsize ( text_str )[ 0 ]
+        font = ImageFont.truetype(font_path, font_size)
+        font_bbox = font.getbbox(text_str)
+        font_length = font_bbox[2] - font_bbox[0]
+
     return font
 
 
@@ -55,6 +59,7 @@ def get_data(player_name, bfversion):
     global get_json
     if bfversion == "bf1":
         url = f"https://api.gametools.network/bf1/all/?name={player_name}&lang=en-us"
+        print ( url )
     elif bfversion == "bfv":
         url = f"https://api.gametools.network/bfv/all/?name={player_name}&lang=en-us"
     get_data = requests.get ( url )
@@ -68,13 +73,16 @@ with open ( transtxt_path, 'r', encoding='utf-8' ) as f:
 # 返回文字内容（除去名称和类型）以及文字内容的长度
 def dict_text_draw_info(select_dict):
     text = ""
-    for k, v in select_dict.items ():
+    for k, v in select_dict.items():
         if k == "名称" or k == '类型':
             continue
-        text += f'{k}:{str ( v )}   '
-    font = resize_font ( 38, text, 1000 )
-    text_lenth = font.getsize ( text.strip () )[ 0 ]
-    return text, text_lenth
+        text += f'{k}:{str(v)}   '
+
+    font = resize_font(38, text, 1000)
+    font_bbox = font.getbbox(text.strip())
+    text_length = font_bbox[2] - font_bbox[0]
+
+    return text, text_length
 
 
 # 返回图标路径,图标透明度,将图标宽度拉至100像素后对应的长度,图标名称
@@ -320,19 +328,19 @@ def draw_img(bfversion):
     bestinfo_drawer ( bfversion, 'vehicle', im1, list_vehicle[ 0 ], 1310, 115 + 230*2, 10 )
     # 最佳模式
     if bfversion == "bf1":
-        list_modes = best_gamemodes ()  # 最佳游戏模式
-        draw1 = dict_text_draw_info ( list_modes[ 0 ] )
-        modename = f"最佳游戏模式:{bf1translate.get ( list_modes[ 0 ].get ( '名称' ).upper (), list_modes[ 0 ].get ( '名称' ) )}"
-        draw.text ( (1310 - largefont.getsize ( modename )[ 0 ]/2, 110 + 230*3 + 25), modename, font=largefont,
-                    fill=(255, 255, 255) )
-        draw.text ( (1310 - draw1[ 1 ]/2, 110 + 230*3 + 115), draw1[ 0 ], font=resize_font ( 38, draw1[ 0 ], 1000 ),
-                    fill=(255, 255, 255) )
+        list_modes = best_gamemodes()  # 最佳游戏模式
+        draw1 = dict_text_draw_info(list_modes[0])
+        modename = f"最佳游戏模式:{bf1translate.get(list_modes[0].get('名称').upper(), list_modes[0].get('名称'))}"
+        mode_bbox = largefont.getbbox(modename)
+        draw.text((1310 - (mode_bbox[2] - mode_bbox[0]) / 2, 110 + 230 * 3 + 25), modename, font=largefont,
+                  fill=(255, 255, 255))
+
+        draw.text((1310 - draw1[1] / 2, 110 + 230 * 3 + 115), draw1[0], font=resize_font(38, draw1[0], 1000),
+                  fill=(255, 255, 255))
     elif bfversion == "bfv":
         # bestinfo_drawer ( bfversion, 'weapon', im1, list_modes[ 0 ], 1310, 115 + 230*3, 10 )
         draw.text ( (1250, 850), "暂未修复", (255, 255, 255), font=font )
 
-    plt.imshow ( im1 )
-    plt.show ()
     im1.save ( f"{filepath}" + "/record.png" )
 
 
@@ -358,14 +366,11 @@ async def getBFI(bot: Bot, event: Event, state: T_State):
         await BFIS.finish ( "战绩查询+游戏ID" )
     get_data ( msg, "bf1" )  # 保存图片给本地路径
     # ID不存在抛出异常
-    try:
-        draw_img ( "bf1" )
-        # img="src/plugins/BF1_record/record.png"
-        await BFIS.send ( Message ( '详细数据访问:' + 'https://battlefieldtracker.com/bf1/profile/pc/' + f'{msg}' ) )
-        await BFIS.send ( send_img ( "record.png" ) )
-        # pathlib.Path('file_path').as_uri()
-    except:
-        await BFIS.send ( Message ( '玩家ID不存在' ) )
+    draw_img ( "bf1" )
+    # img="src/plugins/BF1_record/record.png"
+    await BFIS.send ( Message ( '详细数据访问:' + 'https://battlefieldtracker.com/bf1/profile/pc/' + f'{msg}' ) )
+    await BFIS.send ( send_img ( "record.png" ) )
+    # pathlib.Path('file_path').as_uri()
 
 
 @BFVS.handle ()
@@ -383,5 +388,6 @@ async def getBFV(bot: Bot, event: Event, state: T_State):
         await BFVS.send ( Message ( '详细数据访问:' + 'https://battlefieldtracker.com/bfv/profile/pc/' + f'{msg}' ) )
         await BFVS.send ( send_img ( "record.png" ) )
         # pathlib.Path('file_path').as_uri()
-    except:
+    except Exception as e:
         await BFVS.send ( Message ( '玩家ID不存在' ) )
+        raise e
