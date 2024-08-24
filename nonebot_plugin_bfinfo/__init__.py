@@ -59,7 +59,6 @@ def get_data(player_name, bfversion):
     global get_json
     if bfversion == "bf1":
         url = f"https://api.gametools.network/bf1/all/?name={player_name}&lang=en-us"
-        print ( url )
     elif bfversion == "bfv":
         url = f"https://api.gametools.network/bfv/all/?name={player_name}&lang=en-us"
     get_data = requests.get ( url )
@@ -366,11 +365,15 @@ async def getBFI(bot: Bot, event: Event, state: T_State):
         await BFIS.finish ( "战绩查询+游戏ID" )
     get_data ( msg, "bf1" )  # 保存图片给本地路径
     # ID不存在抛出异常
-    draw_img ( "bf1" )
-    # img="src/plugins/BF1_record/record.png"
-    await BFIS.send ( Message ( '详细数据访问:' + 'https://battlefieldtracker.com/bf1/profile/pc/' + f'{msg}' ) )
-    await BFIS.send ( send_img ( "record.png" ) )
-    # pathlib.Path('file_path').as_uri()
+    try:
+        draw_img ( "bf1" )
+        # img="src/plugins/BF1_record/record.png"
+        await BFIS.send ( Message ( '详细数据访问:' + 'https://battlefieldtracker.com/bf1/profile/pc/' + f'{msg}' ) )
+        await BFIS.send ( send_img ( "record.png" ) )
+        # pathlib.Path('file_path').as_uri()
+    except Exception as e:
+        await BFIS.send ( Message ( '玩家ID不存在' ) )
+        raise e
 
 
 @BFVS.handle ()
